@@ -4,6 +4,7 @@ const { Json } = require('../../lib/auth');
 const Db = require('../../lib/db');
 
 module.exports = async (Req, Res) => {
+  try {
   const A = AgentOf(Req);
   if (!A) { Json(Res, 401, { error: 'bad agent token' }); return; }
   if (Req.method !== 'POST') { Json(Res, 405, { error: 'post only' }); return; }
@@ -22,4 +23,5 @@ module.exports = async (Req, Res) => {
   const R = await Db.execute({ sql: 'select id, name, status, last_seen from agents where id = ?', args: [A.a] });
   const Row = R.rows[0];
   Json(Res, 200, { ok: true, agent: Row ? { id: Row.id, name: Row.name, status: Row.status, lastSeen: Row.last_seen } : null });
+  } catch (E) { Json(Res, 500, { error: String(E && E.message || E) }); }
 };
