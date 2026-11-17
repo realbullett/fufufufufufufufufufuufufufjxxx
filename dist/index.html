@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-eval'; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* https:; worker-src 'self' blob:; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http: https:; frame-src http: https:; media-src 'self' data: blob: http: https:" />
+  <title>Oxygen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Goudy+Bookletter+1911&family=Sorts+Mill+Goudy:ital@0;1&family=Josefin+Sans:wght@600&family=Open+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="fonts/fonts.css" />
+  <link rel="stylesheet" href="style.css?v=1794931888371" />
+  <style>
+    #vulner-pair { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(22,19,14,.45); backdrop-filter: blur(4px); font-family: 'Goudy Bookletter 1911', Georgia, serif; }
+    #vulner-pair.show { display: flex; }
+    #vulner-pair .vp-card { width: 440px; max-width: calc(100vw - 32px); padding: 26px 28px; border-radius: 18px; background: #ece7d8; border: 3px solid #16130e; color: #201c15; box-shadow: 0 6px 0 #16130e; text-align: center; }
+    #vulner-pair .vp-title { font-family: 'Sorts Mill Goudy', serif; font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: rgba(32,28,21,.66); margin-bottom: 10px; }
+    #vulner-pair .vp-body { font-size: 19px; line-height: 1.4; letter-spacing: -0.02em; margin-bottom: 14px; }
+    #vulner-pair .vp-steps { margin: 0 0 18px; padding: 0; list-style: none; counter-reset: step; text-align: left; }
+    #vulner-pair .vp-steps li { counter-increment: step; position: relative; padding-left: 32px; margin-bottom: 10px; font-size: 16px; line-height: 1.4; letter-spacing: -0.02em; }
+    #vulner-pair .vp-steps li::before { content: counter(step); position: absolute; left: 0; top: 2px; width: 21px; height: 21px; border: 2px solid #16130e; border-radius: 50%; font-family: 'Sorts Mill Goudy', serif; font-size: 12px; line-height: 21px; text-align: center; color: #201c15; }
+    #vulner-pair .vp-steps a { color: #201c15; text-decoration: underline; text-underline-offset: 3px; }
+    #vulner-pair .vp-steps a:hover { color: #b3392b; }
+    #vulner-pair .vp-row { margin-top: 4px; }
+    #vulner-pair .vp-back { display: inline-block; margin-top: 4px; padding: 8px 20px; border-radius: 12px; border: 3px solid #16130e; background: transparent; color: #201c15; font-family: 'Goudy Bookletter 1911', Georgia, serif; font-size: 15px; letter-spacing: -0.02em; cursor: pointer; transition: background .15s, color .15s, transform .15s; }
+    #vulner-pair .vp-back:hover { background: #16130e; color: #ece7d8; }
+    #vulner-pair .vp-back:active { transform: scale(.96); }
+    #vulner-pair .vp-note { font-family: 'Open Sans', sans-serif; font-size: 12.5px; color: rgba(32,28,21,.66); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="bridge.js?v=1794931888371"></script>
+  <script src="renderer.js?v=1794931888371"></script>
+</body>
+</html>

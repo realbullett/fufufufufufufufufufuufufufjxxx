@@ -1,0 +1,11 @@
+{
+  "outputDirectory": "dist",
+  "routes": [
+    { "src": "/", "dest": "/landing.html" },
+    { "handle": "filesystem" },
+    { "src": "/app", "dest": "/index.html" },
+    { "src": "/landing", "dest": "/landing.html" },
+    { "src": "/start", "dest": "/start.html" },
+    { "src": "/download", "dest": "/download.html" }
+  ]
+}

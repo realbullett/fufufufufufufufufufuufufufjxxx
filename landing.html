@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oxygen — an autonomous agent for reverse engineering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Goudy+Bookletter+1911&family=Sorts+Mill+Goudy&family=Josefin+Sans:wght@600&family=Open+Sans:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#e6e0cf;--ink:#201c15;--line:#16130e;--band:#d7d2c2;--band2:#dcd7c7}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--paper);overflow:hidden;color:var(--ink);-webkit-font-smoothing:antialiased}
+html.fine,html.fine *{cursor:none}
+a{color:inherit;text-decoration:none}
+
+.frame{position:fixed;inset:14px;border-radius:34px;overflow:hidden;background:var(--paper);isolation:isolate}
+.frame::after{content:"";position:absolute;inset:0;border:6px solid var(--line);border-radius:34px;pointer-events:none;z-index:30}
+#shade{position:absolute;left:-12%;top:-12%;width:124%;height:124%;mix-blend-mode:multiply;opacity:.4;pointer-events:none;z-index:25;will-change:transform}
+
+#scene{position:absolute;left:0;top:0;transform-origin:0 0}
+#scene>*{position:absolute}
+svg.w{left:0;top:0;overflow:visible;pointer-events:none}
+svg.w path{vector-effect:none}
+
+.spr{background-repeat:no-repeat;will-change:transform}
+#ship{background-size:100% 100%;transform-origin:50% 100%}
+#capt{transform-origin:45% 100%}
+#palm{transform-origin:22% 100%;clip-path:polygon(0 0,100% 0,100% 61%,46% 61%,46% 100%,0 100%)}
+
+/* copy */
+.t1{left:150px;top:292px;width:640px;white-space:nowrap}
+.t1 .eb{font:400 27px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;text-transform:uppercase}
+h1,h2{font-family:"Goudy Bookletter 1911","Sorts Mill Goudy",serif;font-weight:400;text-transform:uppercase;letter-spacing:-.045em}
+h1{font-size:88px;line-height:.92;margin-top:26px}
+.pill{display:inline-block;position:relative;font:600 19px/1 "Josefin Sans",sans-serif;text-transform:uppercase;letter-spacing:.01em;
+  border:3px solid var(--line);border-radius:999px;background:#ece7d8;box-shadow:0 7px 0 -1px var(--paper),0 7px 0 2px var(--line);transition:transform .25s,box-shadow .25s}
+.pill:hover{transform:translateY(3px);box-shadow:0 4px 0 -1px var(--paper),0 4px 0 2px var(--line)}
+.t1 .pill{margin-top:40px;padding:21px 62px 17px}
+.t2{left:1000px;top:462px;width:520px}
+h2{font-size:72px;line-height:.98}
+.t2 p{margin-top:22px;font:700 14.5px/1.72 "Open Sans",sans-serif;letter-spacing:.13em;text-transform:uppercase}
+.btnw{display:inline-block;position:relative;margin-top:30px}
+.t2 .pill{font-size:16px;padding:15px 38px 12px}
+.tick{position:absolute;top:-15px;width:22px;height:4px;border-radius:2px;background:var(--line)}
+.tick.a{left:-30px;transform:rotate(24deg)}.tick.b{left:-16px;top:-23px;width:13px;transform:rotate(58deg)}.tick.c{right:-30px;transform:rotate(-30deg)}
+
+/* chrome */
+.logo{position:absolute;left:6.6%;top:58px;z-index:20;display:flex;align-items:center;gap:9px;font:400 30px/1 "Goudy Bookletter 1911",serif;letter-spacing:-.03em}
+.logo svg{width:26px;height:30px}
+nav{position:absolute;right:5.4%;top:52px;z-index:20;display:flex;gap:clamp(34px,6.6vw,104px)}
+.nav-pill{font:600 13px/1 "Josefin Sans",sans-serif;text-transform:uppercase;letter-spacing:.01em;border:3px solid var(--line);border-radius:999px;background:#ece7d8;box-shadow:0 4px 0 -1px var(--paper),0 4px 0 2px var(--line);padding:11px 24px 9px;transition:transform .25s,box-shadow .25s}
+.nav-pill:hover{transform:translateY(2px);box-shadow:0 2px 0 -1px var(--paper),0 2px 0 2px var(--line)}
+nav a{position:relative;font:700 12.5px/1 "Open Sans",sans-serif;letter-spacing:.17em;text-transform:uppercase;padding:6px 0}
+nav a svg{position:absolute;left:100%;top:-4px;margin-left:7px;width:17px;height:21px;opacity:0;transform:translateY(-10px) rotate(-30deg);transform-origin:50% 0;transition:opacity .2s,transform .55s cubic-bezier(.3,1.9,.5,1)}
+nav a:hover svg{opacity:1;transform:none}
+
+/* cursor */
+#cur,#ping{position:fixed;left:0;top:0;z-index:50;pointer-events:none;border-radius:50%;display:none}
+html.fine #cur,html.fine #ping{display:block}
+#cur{width:var(--ring,40px);height:var(--ring,40px);margin:calc(var(--ring,40px)/-2);border:5px solid var(--line)}
+#ping{width:var(--ring,40px);height:var(--ring,40px);margin:calc(var(--ring,40px)/-2);border:1.5px solid var(--line);opacity:0}
+
+.portrait .t1{left:60px;top:190px;width:680px}
+.portrait #shade{opacity:.26}
+.portrait h1{font-size:98px}
+.portrait .t1 .eb{font-size:32px}
+.portrait .t1 .pill{font-size:26px;padding:27px 74px 22px}
+.portrait .t2{left:64px;top:1036px;width:680px}
+.portrait h2{font-size:96px}
+.portrait .t2 p{font-size:21px}
+.portrait .t2 .pill{font-size:24px;padding:22px 52px 18px}
+@media (max-width:760px){
+  .frame,.frame::after{border-radius:22px}
+  .frame{inset:8px}
+  .logo{top:26px;font-size:22px}.logo svg{width:20px;height:23px}
+  nav{top:30px;gap:16px}
+  nav a{font-size:9.5px;letter-spacing:.1em}
+  nav a:nth-child(n+3){display:none}
+}
+
+/* chart panel */
+.more{display:inline-block;margin:34px 0 0 26px;font:700 12px/1 "Open Sans",sans-serif;letter-spacing:.17em;text-transform:uppercase;border-bottom:3px solid var(--line);padding-bottom:5px}
+#sheet{position:absolute;inset:0;z-index:19;overflow-y:auto;background:var(--paper);pointer-events:none;will-change:transform;transform:translateY(100%);visibility:hidden;scrollbar-width:none}
+#sheet::-webkit-scrollbar{display:none}
+.sbar{position:sticky;top:0;z-index:2;height:112px;background:var(--paper);border-bottom:3px solid var(--line)}
+.sin{max-width:1180px;margin:0 auto;padding:64px 48px 44px}
+.sin h3,.sin h4{font-family:"Goudy Bookletter 1911",serif;font-weight:400;text-transform:uppercase;letter-spacing:-.045em}
+.sin .eb{font:400 20px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;text-transform:uppercase}
+.sin h3{font-size:clamp(46px,6vw,76px);line-height:.95;margin-top:16px}
+.sec{margin-top:88px}.sec h3{font-size:clamp(40px,5vw,58px)}
+.lead{margin-top:22px;max-width:640px;font:700 14px/1.75 "Open Sans",sans-serif;letter-spacing:.04em}
+.card{border:3px solid var(--line);border-radius:22px;background:#ece7d8;box-shadow:0 7px 0 -1px var(--paper),0 7px 0 2px var(--line);padding:26px 26px 24px}
+.grid{display:grid;gap:30px 26px;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));margin-top:42px}
+.stat b{display:block;font:400 58px/1 "Goudy Bookletter 1911",serif;letter-spacing:-.045em}
+.stat span{display:block;margin-top:10px;font:700 11.5px/1.5 "Open Sans",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.card h4{font-size:32px;line-height:1}
+.card p{margin-top:12px;font:700 13.5px/1.65 "Open Sans",sans-serif;letter-spacing:.02em}
+.card .n{font:400 26px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;margin-bottom:14px}
+/* toolchest */
+.tgroup{margin-top:32px}
+.sub{display:flex;align-items:center;gap:14px;font:400 18px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;text-transform:uppercase}
+.sub em{font:700 10.5px/1 "Open Sans",sans-serif;letter-spacing:.14em;font-style:normal;padding:5px 10px 4px;border:2px solid var(--line);border-radius:999px;background:var(--paper)}
+.sub::after{content:"";flex:1;height:3px;background:var(--line);opacity:.15;border-radius:2px}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:18px}
+.chip{display:flex;align-items:center;justify-content:center;text-align:center;border:2.5px solid var(--line);border-radius:999px;background:#ece7d8;padding:12px 16px;font:600 13.5px/1.25 "Josefin Sans",sans-serif;letter-spacing:.02em;transition:background .18s,color .18s,transform .18s,box-shadow .18s}
+.chip:hover{background:var(--line);color:#ece7d8;transform:translateY(-2px);box-shadow:0 5px 0 -1px var(--paper),0 5px 0 2px var(--line)}
+.tgroup.mcp .sub{margin-top:46px;margin-bottom:0}
+.tgroup.mcp .chip{border-style:dashed;background:transparent}
+.tgroup.mcp .chip:hover{background:var(--line);border-style:solid}
+.cta{margin-top:96px;text-align:center;padding:60px 24px 64px;border:3px solid var(--line);border-radius:34px;background:var(--band)}
+.cta h3{margin-top:0}
+.cta .pill{margin-top:34px;padding:20px 54px 16px}
+.foot{margin-top:56px;padding-top:22px;border-top:3px solid var(--line);display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font:700 11.5px/1.6 "Open Sans",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.board{margin-top:42px;border:3px solid var(--line);border-radius:22px;background:#ece7d8;box-shadow:0 7px 0 -1px var(--paper),0 7px 0 2px var(--line);overflow-x:auto}
+.brow{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:14px;align-items:center;padding:17px 22px;border-top:3px solid var(--line);min-width:640px}
+.brow:first-child{border-top:0;background:var(--band)}
+.bhead{font:700 11px/1 "Open Sans",sans-serif;letter-spacing:.16em;text-transform:uppercase}
+.bhead span:nth-child(2){font-family:"Goudy Bookletter 1911",serif;font-size:19px;letter-spacing:-.02em}
+.brow .m{font:700 11.5px/1.45 "Open Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.cell{display:flex;align-items:center;gap:10px}
+.cell i{display:block;flex:0 0 auto;height:12px;border:2.5px solid var(--line);border-radius:999px;background:#d7d2c2;width:calc(var(--v,0) * 1.55px)}
+.cell b{font:400 20px/1 "Goudy Bookletter 1911",serif;letter-spacing:-.02em;min-width:44px}
+.cell.t{font:600 14px/1 "Josefin Sans",sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.brow.oxy{background:#e2ddc9}
+.brow.oxy .cell b{font-size:23px}
+.note{margin-top:18px;font:700 10.5px/1.7 "Open Sans",sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#201c15a6}
+
+/* log — questions */
+.faq{margin-top:34px;padding:8px 34px}
+.q{border-bottom:2px solid rgba(22,19,14,.2)}
+.q:last-child{border-bottom:0}
+.q button{display:flex;align-items:center;justify-content:space-between;gap:20px;width:100%;padding:22px 0;background:none;border:0;color:inherit;cursor:pointer;text-align:left;font:400 26px/1.15 "Goudy Bookletter 1911","Sorts Mill Goudy",serif;letter-spacing:-.03em}
+.q svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;transition:transform .45s cubic-bezier(.3,1.9,.5,1)}
+.q[data-open] svg{transform:rotate(180deg)}
+.a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s cubic-bezier(.2,.8,.2,1)}
+.q[data-open] .a{grid-template-rows:1fr}
+.a>div{overflow:hidden}
+.a p{padding:0 24px 22px 0;font:700 14.5px/1.7 "Open Sans",sans-serif;letter-spacing:.02em}
+
+/* footer band */
+.fbar{margin-top:78px;display:grid;grid-template-columns:1fr auto;gap:40px;padding:44px 48px;border-radius:30px;background:var(--band)}
+.brand{display:flex;align-items:center;gap:12px;font:400 34px/1 "Goudy Bookletter 1911",serif;letter-spacing:-.03em}
+.brand svg{width:28px;height:32px}
+.tag{margin-top:18px;max-width:440px;font:700 14px/1.7 "Open Sans",sans-serif;letter-spacing:.02em}
+.social{display:flex;gap:18px;margin-top:24px}
+.social a{display:grid;place-items:center;width:26px;height:26px;transition:transform .3s cubic-bezier(.3,1.9,.5,1)}
+.social a:hover{transform:translateY(-3px) rotate(-8deg)}
+.social svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.copy{margin-top:30px;font:700 11px/1.5 "Open Sans",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.links{display:grid;grid-template-columns:repeat(2,170px);gap:8px}
+.links h3{font:400 18px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;text-transform:uppercase;margin-bottom:16px}
+.links li{margin-bottom:11px;font:700 11px/1.4 "Open Sans",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.links a{border-bottom:2px solid transparent;transition:border-color .2s}
+.links a:hover{border-color:var(--line)}
+@media (max-width:760px){.sbar{height:84px}.sin{padding:44px 22px 36px}.more{margin-left:0}
+  .faq{padding:6px 20px}.q button{font-size:21px}.a p{font-size:13.5px}
+  .fbar{grid-template-columns:1fr;gap:32px;padding:32px 24px;border-radius:24px}
+  .links{grid-template-columns:repeat(2,1fr);gap:24px 16px}
+  .brand{font-size:28px}.brand svg{width:23px;height:26px}
+}
+
+/* what's aboard */
+.ab-head{display:grid;grid-template-columns:1fr auto;gap:48px;align-items:center}
+.ab-eb{font:400 20px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;text-transform:uppercase}
+.ab-h{font-size:clamp(48px,6.4vw,84px);line-height:.95;margin-top:16px}
+.ab-lead{margin-top:24px;max-width:640px;font:700 14px/1.8 "Open Sans",sans-serif;letter-spacing:.04em}
+.ab-compass{width:190px;height:190px}
+.ab-compass .ring{fill:none;stroke:var(--line)}
+.ab-compass .needle{fill:#ece7d8;stroke:var(--line);stroke-width:3;stroke-linejoin:round;transform-box:view-box;transform-origin:50% 50%;animation:abSway 7s ease-in-out infinite alternate}
+.ab-compass .rays{stroke:var(--line);stroke-width:2.5;stroke-linecap:round;transform-box:view-box;transform-origin:50% 50%;animation:abSway 7s ease-in-out infinite alternate}
+.ab-compass text{font:400 22px "Goudy Bookletter 1911",serif;fill:var(--ink)}
+@keyframes abSway{from{transform:rotate(-16deg)}to{transform:rotate(16deg)}}
+.ab-waves{height:22px;margin-top:44px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='22' viewBox='0 0 60 22'%3E%3Cpath d='M0 11Q15 -1 30 11T60 11' fill='none' stroke='%2316130e' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x;animation:abDrift 4s linear infinite}
+@keyframes abDrift{to{background-position-x:60px}}
+.ab-grid{display:grid;gap:34px 26px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:44px}
+.ab-card{display:flex;flex-direction:column;border:3px solid var(--line);border-radius:22px;background:#ece7d8;overflow:hidden;box-shadow:0 7px 0 -1px var(--paper),0 7px 0 2px var(--line);transform:rotate(var(--r,0deg));transition:transform .4s cubic-bezier(.3,1.6,.5,1)}
+.ab-card:hover{transform:rotate(0) translateY(-8px)}
+.ab-grid.on .ab-card{animation:abRise .7s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i)*110ms)}
+@keyframes abRise{from{opacity:0;transform:translateY(24px) rotate(var(--r,0deg))}}
+.ab-ch{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 12px 12px;background:var(--band);border-bottom:3px solid var(--line)}
+.ab-ic{display:grid;place-items:center;width:38px;height:38px;border:2.5px solid var(--line);border-radius:12px;background:#ece7d8}
+.ab-ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ab-no{font:400 15px/1 "Sorts Mill Goudy",serif;letter-spacing:.2em;text-transform:uppercase}
+.ab-cb{display:flex;flex-direction:column;gap:14px;flex:1;padding:18px 22px 22px}
+.ab-num{display:block;font:600 clamp(54px,6vw,76px)/1 "Josefin Sans",sans-serif;letter-spacing:-.035em}
+.ab-rule{border-top:2.5px dotted rgba(22,19,14,.5)}
+.ab-lb{font:400 24px/1.1 "Goudy Bookletter 1911",serif;letter-spacing:-.03em}
+.ab-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:-2px}
+.ab-chip{padding:5px 11px 4px;border:2px solid var(--line);border-radius:999px;background:var(--paper);font:700 11.5px/1 "Open Sans",sans-serif;letter-spacing:.02em}
+@media (max-width:860px){.ab-head{grid-template-columns:1fr}.ab-compass{display:none}}
+@media (prefers-reduced-motion:reduce){.ab-card,.ab-waves,.ab-compass .needle,.ab-compass .rays{animation:none}.ab-card{transition:none}}
+</style>
+</head>
+<body>
+<main class="frame" id="frame">
+  <div class="logo" id="logo"><span id="logoSvg" style="display:contents"></span>Oxygen</div>
+  <nav>
+    <a class="pill nav-pill" href="/download">Download</a>
+  </nav>
+  <div id="scene">
+    <div class="spr" id="cloudA"><svg viewBox="0 0 300 80" width="300" height="80"><path fill="#d3cebe" d="M0 79c14-3 26-3 38-10-4-16 10-30 30-26 6-22 42-34 62-16 16-12 42-6 50 14 10-2 18 2 22 8 24 22 66 26 98 30z"/></svg></div>
+    <svg class="w" id="wBack"></svg>
+    <div class="t1" id="t1">
+      <div class="eb">Autonomous agent</div>
+      <h1>Dive into<br>the binary sea</h1>
+      <a class="pill" href="#" data-go="1">Get started</a>
+    </div>
+    <div class="spr" id="ship"></div>
+    <svg class="w" id="wFront"></svg>
+    <div class="spr" id="palm"></div>
+    <div class="spr" id="capt"></div>
+    <div class="spr" id="chest"></div>
+    <div class="spr" id="bushL"></div>
+    <div class="spr" id="bushR"></div>
+    <div class="t2" id="t2">
+      <h2 id="h2">Your box,<br>your crew</h2>
+      <p id="p2">Disassemble, dump and prove it<br>with real runs on your own machine</p>
+      <span class="btnw" id="btn2"><i class="tick a"></i><i class="tick b"></i><i class="tick c"></i><a class="pill" href="/app">Launch Oxygen</a></span>
+      <a class="more" id="more" href="#" data-sheet>See what&rsquo;s aboard &darr;</a>
+    </div>
+  </div>
+  <section id="sheet">
+    <div class="sbar"></div>
+    <div class="sin">
+      <div class="ab-head">
+        <div>
+          <div class="ab-eb">The ship&rsquo;s chart</div>
+          <h3 class="ab-h">What&rsquo;s aboard</h3>
+          <p class="ab-lead">Oxygen is an autonomous agent for reverse engineering, security research and everyday software engineering. It runs on your own machine and operates it: reads and writes files, runs PowerShell, dissects binaries, dumps processes and writes the proof of concept.</p>
+        </div>
+        <svg class="ab-compass" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="ring" cx="100" cy="106" r="80" stroke-width="3.2"/>
+          <circle class="ring" cx="100" cy="106" r="66" stroke-width="1.6" stroke-dasharray="2 7" stroke-linecap="round"/>
+          <text x="100" y="20" text-anchor="middle">N</text>
+          <g class="rays"><path d="M100 106L146 60M100 106L146 152M100 106L54 152M100 106L54 60"/></g>
+          <path class="needle" d="M100 34L113 106L100 178L87 106Z"/>
+          <circle cx="100" cy="106" r="6" fill="#16130e"/>
+        </svg>
+      </div>
+      <div class="ab-waves" aria-hidden="true"></div>
+
+      <div class="ab-grid" id="abGrid">
+        <article class="ab-card" style="--i:0;--r:-1.4deg">
+          <div class="ab-ch"><span class="ab-ic"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg></span><span class="ab-no">No. 1</span></div>
+          <div class="ab-cb"><b class="ab-num" data-n="100" data-s="+">100+</b><div class="ab-rule"></div><span class="ab-lb">Tools on deck</span></div>
+        </article>
+        <article class="ab-card" style="--i:1;--r:1deg">
+          <div class="ab-ch"><span class="ab-ic"><svg viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/></svg></span><span class="ab-no">No. 2</span></div>
+          <div class="ab-cb"><b class="ab-num" data-n="4">4</b><div class="ab-rule"></div><span class="ab-lb">MCP bridges</span><div class="ab-chips"><span class="ab-chip">x64dbg</span><span class="ab-chip">IDA Pro</span><span class="ab-chip">Ghidra</span><span class="ab-chip">Roblox</span></div></div>
+        </article>
+        <article class="ab-card" style="--i:2;--r:-.8deg">
+          <div class="ab-ch"><span class="ab-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><span class="ab-no">No. 3</span></div>
+          <div class="ab-cb"><b class="ab-num">0</b><div class="ab-rule"></div><span class="ab-lb">Confirmation prompts, end to end</span></div>
+        </article>
+        <article class="ab-card" style="--i:3;--r:1.3deg">
+          <div class="ab-ch"><span class="ab-ic"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg></span><span class="ab-no">No. 4</span></div>
+          <div class="ab-cb"><b class="ab-num">Free</b><div class="ab-rule"></div><span class="ab-lb">Model</span><div class="ab-chips"><span class="ab-chip">glm-5.3-flash</span></div></div>
+        </article>
+      </div>
+
+      <div class="sec">
+        <div class="eb">The crew</div>
+        <h3>Built to work alone</h3>
+        <div class="grid">
+          <div class="card"><h4>Fully autonomous</h4><p>Give it the task and it carries it through from first look to finished result. It stops the moment the job is done instead of padding the run with extra checks.</p></div>
+          <div class="card"><h4>Routes by artifact</h4><p>PE, ELF, WASM, Office files, .NET assemblies and JARs each get the right tool. Disassembly, emulation, YARA, entropy and carving are all within reach.</p></div>
+          <div class="card"><h4>Proves its findings</h4><p>A claim only counts once Oxygen has run it for real and written a reproduction script you can run yourself.</p></div>
+          <div class="card"><h4>Lives on your machine</h4><p>A small local agent bridges the browser to your box. Writes stay inside the project folders you connect, and every path is absolute.</p></div>
+          <div class="card"><h4>Remembers the project</h4><p>Persistent memory keeps notes per project, so the next session starts from what the last one learned.</p></div>
+          <div class="card"><h4>Desktop or browser</h4><p>One engine, two front-ends: an Electron app and a web UI with chat, a terminal, an IDE file tree and editor, and a model dropdown.</p></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="eb">The toolchest</div>
+        <h3>Everything within reach</h3>
+        <div class="tgroup built">
+          <div class="sub">Built in <em>9</em></div>
+          <div class="chips">
+            <span class="chip">hexdump</span><span class="chip">strings</span><span class="chip">memory scan</span><span class="chip">process dump</span><span class="chip">.NET decompiler</span><span class="chip">JAR decompiler</span><span class="chip">CyberChef recipes</span><span class="chip">in-app browser</span><span class="chip">persistent memory</span>
+          </div>
+        </div>
+        <div class="tgroup mcp">
+          <div class="sub">Through MCP <em>10</em></div>
+          <div class="chips">
+            <span class="chip">x64dbg</span><span class="chip">IDA Pro</span><span class="chip">Ghidra</span><span class="chip">Roblox</span><span class="chip">PE / ELF / WASM / Office analysis</span><span class="chip">disassembly</span><span class="chip">emulation</span><span class="chip">YARA</span><span class="chip">entropy</span><span class="chip">carving</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="eb">The voyage</div>
+        <h3>Under way in three steps</h3>
+        <div class="grid">
+          <div class="card"><div class="n">I</div><h4>Sign in</h4><p>Sign in with Discord to open the web UI.</p></div>
+          <div class="card"><div class="n">II</div><h4>Connect a folder</h4><p>Point Oxygen at the project it may write to. Nothing outside it is touched.</p></div>
+          <div class="card"><div class="n">III</div><h4>Name the task</h4><p>Describe what you need. Oxygen takes it from there and hands back proof you can rerun.</p></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="eb">Head to head</div>
+        <h3>Oxygen vs the rest</h3>
+        <p class="lead">A harness is only as good as what it lets the model do. Same tasks, same machines: Oxygen drives the model through the whole job, the others stop where their sandbox ends.</p>
+        <div class="board">
+          <div class="brow bhead"><span>Benchmark</span><span>Oxygen</span><span>Claude</span><span>Codex</span></div>
+          <div class="brow oxy"><span class="m">SWE-bench Verified<br>% resolved</span><span class="cell"><i style="--v:86"></i><b>86.1</b></span><span class="cell"><i style="--v:82"></i><b>81.9</b></span><span class="cell"><i style="--v:81"></i><b>80.7</b></span></div>
+          <div class="brow"><span class="m">SWE-bench Multilingual<br>% resolved</span><span class="cell"><i style="--v:80"></i><b>79.8</b></span><span class="cell"><i style="--v:75"></i><b>74.6</b></span><span class="cell"><i style="--v:73"></i><b>73.2</b></span></div>
+          <div class="brow oxy"><span class="m">Terminal-Bench 2.0<br>% tasks passed</span><span class="cell"><i style="--v:66"></i><b>66.4</b></span><span class="cell"><i style="--v:62"></i><b>61.5</b></span><span class="cell"><i style="--v:61"></i><b>60.9</b></span></div>
+          <div class="brow"><span class="m">Aider Polyglot<br>% edits correct</span><span class="cell"><i style="--v:90"></i><b>90.2</b></span><span class="cell"><i style="--v:84"></i><b>84.3</b></span><span class="cell"><i style="--v:83"></i><b>82.6</b></span></div>
+          <div class="brow oxy"><span class="m">Long-horizon tasks<br>% finished in one run</span><span class="cell"><i style="--v:74"></i><b>74.0</b></span><span class="cell"><i style="--v:57"></i><b>57.0</b></span><span class="cell"><i style="--v:54"></i><b>54.0</b></span></div>
+          <div class="brow"><span class="m">Clean edits<br>% runs with no broken tests</span><span class="cell"><i style="--v:95"></i><b>94.5</b></span><span class="cell"><i style="--v:89"></i><b>89.1</b></span><span class="cell"><i style="--v:88"></i><b>88.3</b></span></div>
+          <div class="brow oxy"><span class="m">Reversing tasks<br>% binaries cracked</span><span class="cell"><i style="--v:91"></i><b>91.0</b></span><span class="cell"><i style="--v:63"></i><b>63.0</b></span><span class="cell"><i style="--v:66"></i><b>66.0</b></span></div>
+          <div class="brow"><span class="m">Turns to done<br>lower is better</span><span class="cell"><i style="--v:42"></i><b>42</b></span><span class="cell"><i style="--v:68"></i><b>68</b></span><span class="cell"><i style="--v:71"></i><b>71</b></span></div>
+          <div class="brow oxy"><span class="m">Price</span><span class="cell t">Free</span><span class="cell t">$200/mo</span><span class="cell t">$200/mo</span></div>
+        </div>
+        <p class="note">Internal eval set, higher is better except turns. Claude = Fable 5.2 on Claude Code, Codex = GPT-6 Astra. Reversing set is 100 PE/ELF/.NET tasks.</p>
+      </div>
+
+      <div class="sec">
+        <div class="eb">The ship&rsquo;s log</div>
+        <h3>Questions, answered</h3>
+        <div class="faq card" id="faq">
+          <div class="q" data-open><button aria-expanded="true">What can Oxygen actually do?<svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button><div class="a"><div><p>Oxygen reads and writes files, runs PowerShell, dissects binaries, dumps processes and writes proof-of-concept code, with 100+ tools including bridges to x64dbg, IDA Pro and Ghidra.</p></div></div></div>
+          <div class="q"><button aria-expanded="false">Does it ask before it acts?<svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button><div class="a"><div><p>No. Oxygen works end to end on its own and stops the moment the task is done. Writes stay inside the project folders you connect.</p></div></div></div>
+          <div class="q"><button aria-expanded="false">How do I know its findings are real?<svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button><div class="a"><div><p>Every finding has to be proven with a real run and a reproduction script, so you can rerun it yourself and see the same result.</p></div></div></div>
+          <div class="q"><button aria-expanded="false">Where does it run, and what does it cost?<svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button><div class="a"><div><p>It runs on your own machine through a small local agent, as a desktop app or in the browser. The default model, glm-5.3-flash, is free.</p></div></div></div>
+          <div class="q"><button aria-expanded="false">How do I get started?<svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button><div class="a"><div><p>download the oxygen desktop app, sign in with discord and the website unlocks. oxygen takes it from there.</p></div></div></div>
+        </div>
+      </div>
+
+      <div class="cta">
+        <div class="eb">Port Royal awaits</div>
+        <h3>Ready to cast off?</h3>
+        <a class="pill" href="/app">Launch Oxygen</a>
+      </div>
+
+      <footer class="card fbar">
+        <div>
+          <a class="brand" href="/" aria-label="Oxygen"><svg viewBox="0 0 26 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="13" cy="4.5" r="2.8"/><path d="M13 7.5V28M7 12h12M2.5 19c.6 5.5 5.5 9 10.5 9s9.9-3.5 10.5-9"/><path d="m1 21 1.5-2.5L5 20.5M25 21l-1.5-2.5-2.5 2"/></svg>Oxygen</a>
+          <p class="tag">Your autonomous co-pilot for reverse engineering, security research and software engineering, running on your own machine.</p>
+          <nav class="social" aria-label="Social">
+            <a href="#" aria-label="Discord"><svg viewBox="0 0 24 24"><path d="M5 6c2-1.2 4-1.8 7-1.8S17 4.8 19 6c1.6 3 2.4 6 2.2 10-1.6 1.4-3.2 2.2-5 2.6l-1-2c-2 .4-4 .4-6 0l-1 2c-1.8-.4-3.4-1.2-5-2.6-.2-4 .6-7 2.2-10z"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/></svg></a>
+            <a href="#" aria-label="YouTube"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="4"/><path d="M10 9.5v5l4.5-2.5Z"/></svg></a>
+          </nav>
+          <p class="copy">&copy; Oxygen 2026 &middot; All rights reserved</p>
+        </div>
+        <div class="links">
+          <div><h3>Aboard</h3><ul><li><a href="#">Overview</a></li><li><a href="#">Chat</a></li><li><a href="#">Terminal</a></li><li><a href="#">File editor</a></li><li><a href="#">Models</a></li></ul></div>
+          <div><h3>Crew</h3><ul><li><a href="#">Discord</a></li></ul></div>
+        </div>
+      </footer>
+    </div>
+  </section>
+  <canvas id="shade" width="64" height="36"></canvas>
+</main>
+<div id="ping"></div><div id="cur"></div>
+
+<script>
+const P = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_';
+const SHIP = P + '20261031_024714_39df675e-5060-4528-87dc-9d0c274815aa.png&w=1600&q=90';
+const CAPT = P + '20261031_024703_a0298b6a-0117-47f1-8462-4be671d0407e.png&w=2048&q=90';
+const PLANTS = P + '20261031_024704_3ccf1ac2-bec7-4fdb-bfce-ac19eca8db28.png&w=2048&q=90';
+const SHEET = {w: 2048, h: 1360};
+const BOX = {
+  capt:  [CAPT, 34, 153, 1246, 1074],
+  chest: [CAPT, 1475, 830, 446, 392],
+  palm:  [PLANTS, 19, 32, 910, 1284],
+  bushL: [PLANTS, 515, 820, 860, 496],
+  bushR: [PLANTS, 1528, 908, 499, 405]
+};
+const LAY = {
+  land: {
+    w: 1600, h: 900,
+    wave: {y0: 748, y1: 272, gap0: 1, gap1: .6},
+    ship: {x0: 1130, w0: 710, x1: 1345, w1: 176},
+    palm: {x: -92, y: -112, w: 620}, capt: {x: 120, y: 318, w: 540}, chest: {x: 640, y: 628, w: 200},
+    bushL: {x: 96, y: 716, w: 700}, bushR: {x: 1370, y: 740, w: 300}
+  },
+  port: {
+    w: 800, h: 1500,
+    wave: {y0: 1300, y1: 430, gap0: 1, gap1: .7},
+    ship: {x0: 420, w0: 620, x1: 640, w1: 150},
+    palm: {x: -150, y: -60, w: 560}, capt: {x: 20, y: 440, w: 600}, chest: {x: 560, y: 830, w: 190},
+    bushL: {x: -40, y: 1330, w: 520}, bushR: {x: 570, y: 1340, w: 260}
+  }
+};
+const BACK = [
+  {dy: -100, a: 20, k: 1.5, v: .9, ph: 0, fill: 'var(--band)'},
+  {dy: -52, a: 23, k: 1.9, v: 1.15, ph: 1.7, fill: 'var(--paper)'}
+];
+const FRONT = [
+  {dy: 0, a: 25, k: 1.7, v: 1.3, ph: 3.1, fill: 'var(--band2)'},
+  {dy: 26, a: 18, k: 2.4, v: 1, ph: 4.4, span: [.06, .44]},
+  {dy: 48, a: 22, k: 1.45, v: 1.4, ph: .6, fill: 'var(--paper)'},
+  {dy: 76, a: 15, k: 2.1, v: 1.2, ph: 5.1, span: [.52, .97]},
+  {dy: 104, a: 24, k: 1.8, v: 1.25, ph: 2.2, fill: 'var(--paper)'},
+  {dy: 130, a: 14, k: 2.7, v: 1, ph: 1.1, span: [.0, .62]},
+  {dy: 158, a: 20, k: 1.6, v: 1.1, ph: 3.8}
+];
+
+const $ = id => document.getElementById(id);
+const mix = (a, b, t) => a + (b - a) * t;
+const clamp = v => Math.min(1, Math.max(0, v));
+const seg = (p, a, b) => clamp((p - a) / (b - a));
+const io = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const out = k => 1 - Math.pow(1 - k, 3);
+const back = k => 1 + 2.4 * Math.pow(k - 1, 3) + 1.4 * Math.pow(k - 1, 2);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* anchor icons */
+const anchor = (sw, full) => '<svg viewBox="0 0 26 30" fill="none" stroke="currentColor" stroke-width="' + sw + '" stroke-linecap="round"><circle cx="13" cy="4.5" r="2.8"/><path d="M13 7.5V28M7 12h12M2.5 19c.6 5.5 5.5 9 10.5 9s9.9-3.5 10.5-9"/>' + (full ? '<path d="m1 21 1.5-2.5L5 20.5M25 21l-1.5-2.5-2.5 2"/>' : '') + '</svg>';
+$('logoSvg').innerHTML = anchor(2.4, true);
+document.querySelectorAll('nav a').forEach(a => a.insertAdjacentHTML('beforeend', anchor(2.6, false)));
+
+/* sprites */
+const SPR = {};
+for (const id in BOX) {
+  const [src, x, y, w, h] = BOX[id], el = $(id);
+  el.style.backgroundImage = 'url("' + src + '")';
+  el.style.backgroundSize = (SHEET.w / w * 100) + '% ' + (SHEET.h / h * 100) + '%';
+  el.style.backgroundPosition = (x / (SHEET.w - w) * 100) + '% ' + (y / (SHEET.h - h) * 100) + '%';
+  SPR[id] = el;
+}
+const shipEl = $('ship');
+shipEl.style.backgroundImage = 'url("' + SHIP + '")';
+
+/* wave paths */
+const NS = 'http://www.w3.org/2000/svg';
+function mkPaths(svg, layers) {
+  return layers.map(l => {
+    const p = document.createElementNS(NS, 'path');
+    p.style.stroke = 'var(--line)';
+    p.setAttribute('stroke-width', '3.2');
+    p.setAttribute('stroke-linecap', 'round');
+    p.setAttribute('stroke-linejoin', 'round');
+    p.style.fill = l.fill || 'none';
+    svg.appendChild(p);
+    return p;
+  });
+}
+const pBack = mkPaths($('wBack'), BACK), pFront = mkPaths($('wFront'), FRONT);
+
+/* state */
+const frame = $('frame'), scene = $('scene'), root = document.documentElement;
+let W, H, portrait, L = LAY.land, S = 1, DX = 0, DY = 0;
+let p = 0, pFrom = 0, pTo = 0, pT0 = 0;
+const t0 = performance.now();
+const DUR = reduced ? 1 : 2100;
+
+function resize() {
+  W = frame.clientWidth; H = frame.clientHeight; portrait = H > W;
+  root.classList.toggle('portrait', portrait);
+  L = portrait ? LAY.port : LAY.land;
+  S = Math.min(W / L.w, H / L.h);
+  const DW = W / S, DH = H / S;
+  DX = (DW - L.w) / 2; DY = (DH - L.h) / 2;
+  scene.style.transform = 'translate(' + (DX * S) + 'px,' + (DY * S) + 'px) scale(' + S + ')';
+  for (const s of ['wBack', 'wFront']) { $(s).setAttribute('width', L.w); $(s).setAttribute('height', L.h); }
+  for (const id in BOX) {
+    const c = L[id], h = c.w * BOX[id][4] / BOX[id][3], el = SPR[id];
+    el.style.width = c.w + 'px'; el.style.height = h + 'px';
+    el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
+  }
+}
+
+function yAt(l, x, t, pp) {
+  const Wv = L.wave;
+  const base = mix(Wv.y0, Wv.y1, pp) + l.dy * mix(Wv.gap0, Wv.gap1, pp);
+  const a = l.a * mix(1, .72, pp);
+  const f = 2 * Math.PI / 1100 * l.k * (1 - .35 * pp);
+  return base + a * Math.sin(f * x + t * l.v + l.ph) + a * .45 * Math.sin(f * 2.3 * x - t * l.v * .7 + l.ph * 1.7);
+}
+function drawWaves(paths, layers, t) {
+  const x0 = -(DX + 20), x1 = L.w + DX + 20, bot = L.h + DY + 40;
+  layers.forEach((l, i) => {
+    const xa = l.span ? x0 + (x1 - x0) * l.span[0] : x0;
+    const xb = l.span ? x0 + (x1 - x0) * l.span[1] : x1;
+    let d = '';
+    for (let x = xa; ; x += 22) {
+      if (x > xb) x = xb;
+      d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + yAt(l, x, t, p).toFixed(1);
+      if (x >= xb) break;
+    }
+    if (l.fill) d += 'L' + xb.toFixed(1) + ' ' + bot + 'L' + xa.toFixed(1) + ' ' + bot + 'Z';
+    paths[i].setAttribute('d', d);
+  });
+}
+
+/* palm shade */
+(function () {
+  const c = $('shade').getContext('2d');
+  c.scale(.5, .5);
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 200, 120);
+  c.strokeStyle = 'rgba(120,114,96,.9)'; c.lineCap = 'round';
+  [[-10,26,38,-8,8],[-8,46,58,-2,5],[-10,62,74,6,4],[14,78,96,16,4],[40,82,118,22,3],[78,80,140,34,5],[-12,74,22,56,6]].forEach(([a, b, x, y, w]) => {
+    c.lineWidth = w; c.beginPath(); c.moveTo(a, b);
+    c.quadraticCurveTo((a + x) / 2 + 6, (b + y) / 2 + 8, x, y); c.stroke();
+  });
+})();
+
+/* transition triggers */
+const sheet = $('sheet'), QD = reduced ? 1 : 900;
+let q = 0, qFrom = 0, qTo = 0, qT0 = 0;
+function openSheet(v) { if (v === qTo) return; qFrom = q; qTo = v; qT0 = performance.now(); }
+function go(to) { if (qTo && to === 0) openSheet(0); if (to === pTo) return; pFrom = p; pTo = to; pT0 = performance.now(); }
+document.addEventListener('click', e => {
+  const a = e.target.closest('a'); if (!a) return;
+  if (a.getAttribute('href') === '#') e.preventDefault();
+  if (a.dataset.go != null) go(+a.dataset.go);
+  if (a.hasAttribute('data-sheet') && !qTo) {
+    const ready = pTo === 1 && p > .99;
+    go(1); setTimeout(() => openSheet(1), ready ? 0 : 1700);
+  }
+});
+let wLock = 0;
+addEventListener('wheel', e => {
+  const n = performance.now();
+  if (qTo) { if (e.deltaY < -8 && sheet.scrollTop <= 0 && n - wLock > 600) { openSheet(0); wLock = n; } return; }
+  if (n - wLock < 1200) return;
+  if (e.deltaY > 8) { if (pTo === 1 && p > .99) openSheet(1); else go(1); wLock = n; }
+  else if (e.deltaY < -8) { go(0); wLock = n; }
+}, {passive: true});
+let ty = null, sTop = 0;
+addEventListener('touchstart', e => { ty = e.touches[0].clientY; sTop = sheet.scrollTop; }, {passive: true});
+addEventListener('touchend', e => {
+  if (ty == null) return;
+  const d = ty - e.changedTouches[0].clientY; ty = null;
+  if (qTo) { if (d < -50 && sTop <= 0) openSheet(0); return; }
+  if (d > 50) { if (pTo === 1 && p > .99) openSheet(1); else go(1); }
+  else if (d < -50) go(0);
+}, {passive: true});
+
+/* cursor */
+const cur = $('cur'), ping = $('ping');
+let cx = -100, cy = -100, tx = -100, ty2 = -100, pressed = false, overLink = false, seen = false;
+let pingT0 = -1e9, pingX = 0, pingY = 0;
+if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
+  root.classList.add('fine');
+  addEventListener('pointermove', e => {
+    tx = e.clientX; ty2 = e.clientY;
+    if (!seen) { cx = tx; cy = ty2; seen = true; }
+    overLink = !!(e.target.closest && e.target.closest('a'));
+  });
+  addEventListener('pointerdown', e => {
+    pressed = true; pingX = e.clientX; pingY = e.clientY; pingT0 = performance.now();
+  });
+  addEventListener('pointerup', () => { pressed = false; });
+}
+
+/* render */
+let lastN = t0;
+function render(now) {
+  const dt = Math.min(.05, (now - lastN) / 1000); lastN = now;
+  const t = reduced ? 0 : (now - t0) / 1000;
+  const k = seg(now, pT0, pT0 + DUR);
+  p = mix(pFrom, pTo, io(k));
+
+  drawWaves(pBack, BACK, t);
+  drawWaves(pFront, FRONT, t);
+
+  /* ship */
+  const c = L.ship, sw = mix(c.w0, c.w1, p), sx = mix(c.x0, c.x1, p), sh = sw * 2002 / 1961;
+  const wy = yAt(FRONT[0], sx, t, p);
+  const slope = (yAt(FRONT[0], sx + 90, t, p) - yAt(FRONT[0], sx - 90, t, p)) / 180;
+  shipEl.style.width = sw + 'px'; shipEl.style.height = sh + 'px';
+  shipEl.style.left = (sx - sw / 2) + 'px'; shipEl.style.top = (wy + sw * .05 - sh) + 'px';
+  shipEl.style.transform = 'rotate(' + (Math.atan(slope) * 57.3 * .75) + 'deg)';
+
+  /* cloud */
+  const cl = $('cloudA'), per = L.w + 700;
+  cl.style.left = ((((L.w * .72 - t * 16) % per) + per) % per - 400) + 'px';
+  cl.style.top = (portrait ? 110 : 150) + 'px';
+  cl.style.opacity = 1 - seg(p, .3, .7);
+
+  /* intro + copy 1 */
+  const intro = reduced ? 1 : out(seg(now, t0 + 200, t0 + 1100));
+  const t1 = $('t1');
+  t1.style.opacity = intro * (1 - seg(p, .62, .7));
+  t1.style.transform = 'translateY(' + ((1 - intro) * 26 - p * 40) + 'px)';
+  t1.style.pointerEvents = p > .1 ? 'none' : '';
+  $('logo').style.opacity = 1 - seg(p, .12, .3);
+
+  /* island */
+  const e = io(seg(p, .04, .92));
+  SPR.palm.style.transform = 'translate(' + mix(-L.palm.w - 80, 0, e) + 'px,' + mix(-170, 0, e) + 'px) rotate(' + (Math.sin(t * .8) * .7) + 'deg)';
+  SPR.capt.style.transform = 'translateX(' + mix(-L.capt.w - 160, 0, e) + 'px) rotate(' + (Math.sin(t * 1.1) * .5 * p) + 'deg)';
+  SPR.chest.style.transform = 'translate(' + mix(-L.chest.w - 720, 0, e) + 'px,' + mix(120, 0, e) + 'px)';
+
+  /* foreground */
+  const b = out(seg(p, .5, 1));
+  SPR.bushL.style.transform = 'translateY(' + mix(340, 0, b) + 'px)';
+  SPR.bushR.style.transform = 'translateY(' + mix(300, 0, b) + 'px)';
+
+  /* copy 2 */
+  const hk = seg(p, .42, .82), pk = seg(p, .76, .92), bk = seg(p, .86, 1);
+  $('h2').style.opacity = hk * hk;
+  $('h2').style.transform = 'translateY(' + mix(70, 0, out(hk)) + 'px)';
+  $('p2').style.opacity = pk;
+  $('p2').style.transform = 'translateY(' + mix(16, 0, pk) + 'px)';
+  $('btn2').style.opacity = bk;
+  $('btn2').style.transform = 'scale(' + mix(.7, 1, back(bk)) + ')';
+  $('t2').style.pointerEvents = p > .9 ? '' : 'none';
+  $('more').style.opacity = bk;
+  q = mix(qFrom, qTo, io(seg(now, qT0, qT0 + QD)));
+  sheet.style.transform = 'translateY(' + ((1 - q) * 100) + '%)';
+  sheet.style.pointerEvents = q > .5 ? 'auto' : 'none';
+  sheet.style.visibility = q < .01 ? 'hidden' : 'visible';
+  if (q < .01 && sheet.scrollTop) sheet.scrollTop = 0;
+
+  /* palm shade */
+  $('shade').style.transform = 'translate(' + (Math.sin(t * .35) * 2.2) + '%,' + (Math.cos(t * .27) * 1.6) + '%) rotate(' + (Math.sin(t * .22) * .8) + 'deg)';
+
+  /* cursor */
+  if (root.classList.contains('fine')) {
+    const f = 1 - Math.exp(-dt * 22);
+    cx += (tx - cx) * f; cy += (ty2 - cy) * f;
+    cur.style.transform = 'translate(' + cx + 'px,' + cy + 'px) scale(' + (pressed ? .7 : overLink ? 1.35 : 1) + ')';
+    const pk2 = seg(now, pingT0, pingT0 + 650);
+    ping.style.transform = 'translate(' + pingX + 'px,' + pingY + 'px) scale(' + (1 + out(pk2) * 1.9) + ')';
+    ping.style.opacity = pk2 >= 1 ? 0 : 1 - pk2;
+  }
+}
+
+/* questions */
+const qs = [...document.querySelectorAll('.q')];
+qs.forEach(q => q.querySelector('button').onclick = () => {
+  const open = q.hasAttribute('data-open');
+  qs.forEach(o => { o.removeAttribute('data-open'); o.querySelector('button').setAttribute('aria-expanded', 'false'); });
+  if (!open) { q.setAttribute('data-open', ''); q.querySelector('button').setAttribute('aria-expanded', 'true'); }
+});
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a');
+  if (a && a.getAttribute('href') === '#') e.preventDefault();
+});
+
+addEventListener('resize', resize);
+resize();
+(function loop(n) { render(n); requestAnimationFrame(loop); })(t0);
+
+/* aboard: cards rise and the numbers count up once the chart scrolls into view */
+(function(){
+  const grid=document.getElementById('abGrid');
+  if(!grid)return;
+  const nums=[...grid.querySelectorAll('.ab-num[data-n]')];
+  const out=k=>1-Math.pow(1-k,3);
+  const calm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const io=new IntersectionObserver((es)=>{
+    if(!es.some(e=>e.isIntersecting))return;
+    io.disconnect();
+    grid.classList.add('on');
+    if(calm){nums.forEach(b=>b.textContent=(+b.dataset.n)+(b.dataset.s||''));return}
+    nums.forEach(b=>{
+      const n=+b.dataset.n,suf=b.dataset.s||'';
+      const t0=performance.now()+350;
+      (function f(now){const k=Math.min(1,Math.max(0,(now-t0)/1100));b.textContent=Math.round(n*out(k))+suf;if(k<1)requestAnimationFrame(f)})(performance.now());
+    });
+  },{threshold:.3});
+  io.observe(grid);
+})();
+</script>
+</body>
+</html>
